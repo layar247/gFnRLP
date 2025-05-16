@@ -26,46 +26,43 @@ filter_codes([H|T1], [F|T2]) :-
     filter_codes(T1, T2).
 
 login(Stream, Name) :-
-    % Читаем приветствие
+    % 1. Читаем приветствие
     read_line_to_codes(Stream, Welcome),
-    format("DEBUG: Welcome: ~s~n", [Welcome]),
+    format("DEBUG: Got welcome: ~s~n", [Welcome]),
     
-    % Отправляем имя
+    % 2. Отправляем имя
     format(Stream, "~s~n", [Name]),
     flush_output(Stream),
     
-    % Читаем ответ сервера
-    read_line_to_codes(Stream, Response1),
-    read_line_to_codes(Stream, Response2),
-    read_line_to_codes(Stream, Response3),
-    format("DEBUG: Responses: ~s, ~s, ~s~n", [Response1, Response2, Response3]),
+    % 3. Читаем ответ сервера (3 строки)
+    read_line_to_codes(Stream, Resp1), % "Welcome, ..."
+    read_line_to_codes(Stream, Resp2), % Описание комнаты
+    read_line_to_codes(Stream, Resp3), % Health bar
+    format("DEBUG: Responses: ~s, ~s, ~s~n", [Resp1, Resp2, Resp3]),
     
-    % Проверяем, было ли имя принято
-    ( member(0't, Response1), member(0'r, Response1), member(0'y, Response1) ->
-        login(Stream, Name)
-    ;
-        true
-    ).
+    % 4. Читаем приглашение "> "
+    read_line_to_codes(Stream, Prompt),
+    (member(0'>, Prompt) -> true ; fail).
 
+% Упрощенный process/1
 process(Stream) :-
     exit([Direction|_]),
     format(Stream, "move ~w~n", [Direction]),
     flush_output(Stream),
     retractall(exit(_)),
     
-    % Читаем ответ сервера
-    read_line_to_codes(Stream, Response),
-    read_line_to_codes(Stream, Prompt),
-    format("DEBUG: Move response: ~s~n", [Response]).
+    % Читаем ответ (2 строки)
+    read_line_to_codes(Stream, _Response),
+    read_line_to_codes(Stream, _Prompt).
 
 loop(Stream) :-
     catch(
-        read_line_to_codes(Stream, Codes),
+        (read_line_to_codes(Stream, Codes),
         Error,
-        (format('Connection error: ~w~n', [Error]), fail)
+        (format('Error: ~w~n', [Error]), fail)
     ),
     (Codes == end_of_file ->
-        format("Server closed connection~n", [])
+        format("Server disconnected~n", [])
     ;
         format("DEBUG: Received: ~s~n", [Codes]),
         filter_codes(Codes, Filtered),
