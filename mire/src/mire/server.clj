@@ -26,35 +26,47 @@
     name))
 
 (defn- mire-handle-client [in out]
+  (println "Новый клиент подключился!") ;; сюда
   (binding [*in* (io/reader in)
             *out* (io/writer out)
             *err* (io/writer System/err)]
-
-    ;; We have to nest this in another binding call instead of using
-    ;; the one above so *in* and *out* will be bound to the socket
     (print "\nWhat is your name? ") (flush)
-    (binding [player/*name* (get-unique-player-name (read-line))
-              player/*current-room* (ref (@rooms/rooms :start))
-              player/*inventory* (ref #{})
-              player/*luck* 20
-              player/*money* 0
-              player/*current-chest* nil] 
-      
-      (dosync
-       (commute (:inhabitants @player/*current-room*) conj player/*name*)
-       (commute player/streams assoc player/*name* *out*))
+    (println "Ожидаем имя...") ;; сюда
 
-      (println (commands/look)) (print (player/health-bar)) (println (str " Money: " player/*money*)) (print player/prompt) (flush)
+    (let [name (read-line)]
+      (println "Получено имя:" name) ;; сюда
+      (binding [player/*name* (get-unique-player-name name)
+                player/*current-room* (ref (@rooms/rooms :start))
+                player/*inventory* (ref #{})
+                player/*luck* 20
+                player/*money* 0
+                player/*current-chest* nil]
+        (println "Инициализация игрока...") ;; сюда
 
-      (try (loop [input (read-line)]
-             (when input
-               (println (commands/execute input))
-               (.flush *err*)
-               (print (player/health-bar)) (flush)
-               (println (str " Money: " player/*money*)) (flush)
-               (print player/prompt) (flush)
-               (recur (read-line))))
-           (finally (cleanup))))))
+        (dosync
+         (commute (:inhabitants @player/*current-room*) conj player/*name*)
+         (commute player/streams assoc player/*name* *out*))
+        
+        (println "Игрок добавлен в комнату.")
+        (println (commands/look))
+        (print (player/health-bar))
+        (println (str " Money: " player/*money*))
+        (print player/prompt) (flush)
+
+        ;; основной игровой цикл
+        (try
+          (loop [input (read-line)]
+            (when input
+              (println (commands/execute input))
+              (.flush *err*)
+              (print (player/health-bar)) (flush)
+              (println (str " Money: " player/*money*)) (flush)
+              (print player/prompt) (flush)
+              (recur (read-line))))
+          (finally
+            (println "Клиент отключился. Очистка...")
+            (cleanup)))))))
+
 
 (defn -main
   ([port dir]
