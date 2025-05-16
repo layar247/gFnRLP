@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./mire #raz
+        working-directory: ./mire #razv
 
     steps:
       - name: Checkout repository
