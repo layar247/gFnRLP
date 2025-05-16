@@ -42,6 +42,7 @@
                 player/*money* 0
                 player/*current-chest* nil]
         (println "Инициализация игрока...") ;; сюда
+	(println "Ключи в карте комнат:" (keys @rooms/rooms))
 	(println "Комната: " @player/*current-room*)
         (dosync
          (commute (:inhabitants @player/*current-room*) conj player/*name*)
