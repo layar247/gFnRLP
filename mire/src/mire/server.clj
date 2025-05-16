@@ -42,7 +42,7 @@
                 player/*money* 0
                 player/*current-chest* nil]
         (println "Инициализация игрока...") ;; сюда
-
+	(println "Комната: " @player/*current-room*)
         (dosync
          (commute (:inhabitants @player/*current-room*) conj player/*name*)
          (commute player/streams assoc player/*name* *out*))
