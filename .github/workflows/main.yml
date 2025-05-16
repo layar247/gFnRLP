@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: #r
+    branches:
       - main
 
 jobs:
@@ -60,8 +60,14 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Check SSH port accessibility
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y netcat
+          nc -zv 212.192.134.135 58529
+
       - name: SSH deploy
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.6
         with:
           host: 212.192.134.135
           username: matsumoto
