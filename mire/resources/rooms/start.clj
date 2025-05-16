@@ -2,4 +2,5 @@
  :chests #{:old_chest_1}
  :items #{:pickaxe}
  :letters #{:letter1}
- :exits {:north :closet :south :hallway}}
+ :exits {:north :closet :south :hallway}
+ :inhabitants (ref #{})}

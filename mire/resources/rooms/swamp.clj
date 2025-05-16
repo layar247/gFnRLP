@@ -2,4 +2,5 @@
 There is an ogre here."
  :exits {:north :promenade}
  :items #{:golden_key}
+ :inhabitants (ref #{})}
 }
