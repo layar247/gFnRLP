@@ -11,7 +11,7 @@ parse_exits(Exits) --> [exits], exits(Exits), ['.'].
 
 parse(Tokens) :-
     (phrase(parse_exits(Exits), Tokens, _Rest) ->
-        (retractall(exit(_)), assert(exit(Exits))
+        (retractall(exit(_)), assert(exit(Exits)))
     ;
         true.
 
@@ -25,48 +25,49 @@ filter_codes([H|T1], [F|T2]) :-
     code_type(F, to_lower(H)),
     filter_codes(T1, T2).
 
-
 login(Stream, Name) :-
-    % 1. Читаем приветствие "What is your name?"
-    read_line_to_codes(Stream, _Welcome),
+    % Читаем приветствие
+    read_line_to_codes(Stream, Welcome),
+    format("DEBUG: Welcome: ~s~n", [Welcome]),
     
-    % 2. Отправляем имя
+    % Отправляем имя
     format(Stream, "~s~n", [Name]),
     flush_output(Stream),
     
-    % 3. Читаем весь приветственный текст (3 строки)
-    read_line_to_codes(Stream, _Line1), % "Welcome, Vlad!"
-    read_line_to_codes(Stream, _Line2), % Описание комнаты
-    read_line_to_codes(Stream, _Line3), % Health bar
-    read_line_to_codes(Stream, _Prompt), % "> "
+    % Читаем ответ сервера
+    read_line_to_codes(Stream, Response1),
+    read_line_to_codes(Stream, Response2),
+    read_line_to_codes(Stream, Response3),
+    format("DEBUG: Responses: ~s, ~s, ~s~n", [Response1, Response2, Response3]),
     
-    % 4. Проверяем, было ли имя принято
-    ( sub_atom(_Line1, _, _, _, "try again") ->
-        login(Stream, Name) % повторяем
+    % Проверяем, было ли имя принято
+    ( member(0't, Response1), member(0'r, Response1), member(0'y, Response1) ->
+        login(Stream, Name)
     ;
         true
     ).
 
-% Улучшенный process/1
 process(Stream) :-
     exit([Direction|_]),
     format(Stream, "move ~w~n", [Direction]),
     flush_output(Stream),
     retractall(exit(_)),
     
-    % Читаем ответ сервера (2 строки)
-    read_line_to_codes(Stream, _Response), % Результат движения
-    read_line_to_codes(Stream, _Prompt).   % Новое приглашение "> "
+    % Читаем ответ сервера
+    read_line_to_codes(Stream, Response),
+    read_line_to_codes(Stream, Prompt),
+    format("DEBUG: Move response: ~s~n", [Response]).
 
 loop(Stream) :-
     catch(
-        (read_line_to_codes(Stream, Codes),
+        read_line_to_codes(Stream, Codes),
         Error,
         (format('Connection error: ~w~n', [Error]), fail)
     ),
     (Codes == end_of_file ->
         format("Server closed connection~n", [])
     ;
+        format("DEBUG: Received: ~s~n", [Codes]),
         filter_codes(Codes, Filtered),
         atom_codes(Atom, Filtered),
         tokenize_atom(Atom, Tokens),
@@ -77,24 +78,11 @@ loop(Stream) :-
     ).
 
 main :-
-    retry_connect(3).
-
-retry_connect(Attempts) :-
-    Attempts > 0,
-    catch(
-        setup_call_cleanup(
-            tcp_connect(localhost:3333, Stream, []),
-            (
-                login(Stream, "botname"), % Используем новую login/2
-                loop(Stream)
-            ),
-            close(Stream)
-        ),
-        Error,
+    setup_call_cleanup(
+        tcp_connect(localhost:3333, Stream, []),
         (
-            format('Attempt ~w failed: ~w~n', [Attempts, Error]),
-            NewAttempts is Attempts - 1,
-            sleep(5),
-            retry_connect(NewAttempts)
-        )
+            login(Stream, "botname"),
+            loop(Stream)
+        ),
+        close(Stream)
     ).
