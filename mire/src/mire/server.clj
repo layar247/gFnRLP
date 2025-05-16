@@ -7,8 +7,8 @@
             [mire.rooms :as rooms]
             [mire.letters :as letters]
             [mire.items :as items]
-            [mire.chests :as chests]))
-
+            [mire.chests :as chests]
+            [clojure.string :as str])
 (defn- cleanup []
   (dosync
    (doseq [item @player/*inventory*]
