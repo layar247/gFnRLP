@@ -27,30 +27,36 @@ filter_codes([H|T1], [F|T2]) :-
 
 
 login(Stream, Name) :-
-    % Читаем приветствие сервера ("What is your name?")
-    read_line_to_codes(Stream, _),
+    % 1. Читаем приветствие "What is your name?"
+    read_line_to_codes(Stream, _Welcome),
     
-    % Отправляем имя
+    % 2. Отправляем имя
     format(Stream, "~s~n", [Name]),
     flush_output(Stream),
     
-    % Читаем ответ сервера
-    read_line_to_codes(Stream, ResponseCodes),
-    atom_codes(Response, ResponseCodes),
+    % 3. Читаем весь приветственный текст (3 строки)
+    read_line_to_codes(Stream, _Line1), % "Welcome, Vlad!"
+    read_line_to_codes(Stream, _Line2), % Описание комнаты
+    read_line_to_codes(Stream, _Line3), % Health bar
+    read_line_to_codes(Stream, _Prompt), % "> "
     
-    % Проверяем, принято ли имя
-    (sub_atom(Response, _, _, _, "try again") ->
-        login(Stream, Name) % повторяем с тем же именем
+    % 4. Проверяем, было ли имя принято
+    ( sub_atom(_Line1, _, _, _, "try again") ->
+        login(Stream, Name) % повторяем
     ;
-        true. % имя принято
+        true
+    ).
 
+% Улучшенный process/1
 process(Stream) :-
-    (exit([Direction|_]) ->
-        format(Stream, "move ~w~n", [Direction]), % Убрали лишний \n
-        flush_output(Stream),
-        retractall(exit(_))
-    ;
-        true.
+    exit([Direction|_]),
+    format(Stream, "move ~w~n", [Direction]),
+    flush_output(Stream),
+    retractall(exit(_)),
+    
+    % Читаем ответ сервера (2 строки)
+    read_line_to_codes(Stream, _Response), % Результат движения
+    read_line_to_codes(Stream, _Prompt).   % Новое приглашение "> "
 
 loop(Stream) :-
     catch(
