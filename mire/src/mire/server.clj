@@ -71,7 +71,7 @@
 
 (defn -main
   ([port dir]
-     (rooms/add-rooms (str dir "rooms"))
+     (rooms/add-rooms (str (io/file dir "rooms"))
      (chests/add-chests (str dir "chests"))
      (letters/add-letters (str dir "letters"))
      (items/add-items (str dir "items"))
