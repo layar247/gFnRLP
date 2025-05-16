@@ -1,7 +1,6 @@
 :- use_module(library(socket)).
 :- dynamic exit/1.
 
-% DCG правила остаются без изменений
 e(north) --> [north].
 e(south) --> [south].
 e(west) --> [west].
@@ -10,14 +9,12 @@ exits([Exit]) --> e(Exit).
 exits([Exit|Exits]) --> e(Exit), exits(Exits).
 parse_exits(Exits) --> [exits], exits(Exits), ['.'].
 
-% Улучшенный парсер с обработкой ошибок
 parse(Tokens) :-
     (phrase(parse_exits(Exits), Tokens, _Rest) ->
         (retractall(exit(_)), assert(exit(Exits))
     ;
         true.
 
-% Фильтр с защитой от пустого ввода
 filter_codes([], []) :- !.
 filter_codes([H|T1], T2) :-
     char_code(C, H),
@@ -28,17 +25,33 @@ filter_codes([H|T1], [F|T2]) :-
     code_type(F, to_lower(H)),
     filter_codes(T1, T2).
 
-% Обработчик команд с защитой от сбоев
+
+login(Stream, Name) :-
+    % Читаем приветствие сервера ("What is your name?")
+    read_line_to_codes(Stream, _),
+    
+    % Отправляем имя
+    format(Stream, "~s~n", [Name]),
+    flush_output(Stream),
+    
+    % Читаем ответ сервера
+    read_line_to_codes(Stream, ResponseCodes),
+    atom_codes(Response, ResponseCodes),
+    
+    % Проверяем, принято ли имя
+    (sub_atom(Response, _, _, _, "try again") ->
+        login(Stream, Name) % повторяем с тем же именем
+    ;
+        true. % имя принято
+
 process(Stream) :-
     (exit([Direction|_]) ->
-        format(atom(Command), 'move ~w~n', [Direction]),
-        format(Stream, '~s', [Command]),
+        format(Stream, "move ~w~n", [Direction]), % Убрали лишний \n
         flush_output(Stream),
         retractall(exit(_))
     ;
         true.
 
-% Улучшенный главный цикл
 loop(Stream) :-
     catch(
         (read_line_to_codes(Stream, Codes),
@@ -57,7 +70,6 @@ loop(Stream) :-
         loop(Stream)
     ).
 
-% Инициализация с переподключением
 main :-
     retry_connect(3).
 
@@ -67,7 +79,7 @@ retry_connect(Attempts) :-
         setup_call_cleanup(
             tcp_connect(localhost:3333, Stream, []),
             (
-                login(Stream, "botname"),
+                login(Stream, "botname"), % Используем новую login/2
                 loop(Stream)
             ),
             close(Stream)
