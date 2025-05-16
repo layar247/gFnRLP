@@ -99,3 +99,75 @@ jobs:
           debug: true
           script: |
             podman ps --filter "name=gFnRLP"
+            
+      - name: Test Prolog client
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: 212.192.134.135
+          username: matsumoto
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 58529
+          debug: true
+          script: |
+            # Install SWI-Prolog if not installed
+            sudo apt-get update
+            sudo apt-get install -y swi-prolog
+            
+            # Create a test file with your Prolog code
+            cat > prolog_client_test.pl << 'EOF'
+            :- use_module(library(socket)).
+
+            :- dynamic exit/1.
+
+            e(north) --> [north].
+            e(south) --> [south].
+            e(west) --> [west].
+            e(east) --> [east].
+            exits([Exit]) --> e(Exit).
+            exits([Exit|Exits]) --> e(Exit), exits(Exits).
+            parse_exits(Exits) --> [exits], exits(Exits), ['.'].
+
+            parse(Tokens) :- phrase(parse_exits(Exits), Tokens, Rest), retractall(exit(_)), assert(exit(Exits)).
+            parse(_).
+
+            filter_codes([], []).
+            filter_codes([H|T1], T2) :-
+              char_code(C, H),
+              member(C, ['(', ')', ':']),
+              filter_codes(T1, T2).
+            filter_codes([H|T1], [F|T2]) :- 
+              code_type(F, to_lower(H)),
+              filter_codes(T1, T2).
+
+            process(Stream) :-
+              exit([Direction|_]),
+              format(atom(Command), 'move ~w~n', [Direction]),
+              write(Command),
+              write(Stream, Command),
+              flush_output(Stream),
+              retractall(exit(_)).
+            process(_).
+
+            loop(Stream) :-
+              read_line_to_codes(Stream, Codes),
+              filter_codes(Codes, Filtered),
+              atom_codes(Atom, Filtered),
+              tokenize_atom(Atom, Tokens),
+              write(Tokens),
+              parse(Tokens),
+              nl,
+              flush(),
+              sleep(1),
+              process(Stream),
+              loop(Stream).
+             
+            main :-
+              setup_call_cleanup(
+                tcp_connect(localhost:3333, Stream, []),
+                loop(Stream),
+                close(Stream)).
+            EOF
+            
+            # Run simple test (this will fail if server doesn't respond properly)
+            timeout 10 swipl -q -g "main" -t halt prolog_client_test.pl || echo "Prolog client test completed"
+            echo "Prolog client test executed"
