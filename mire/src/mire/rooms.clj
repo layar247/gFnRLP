@@ -3,10 +3,13 @@
 
 (def rooms (ref {}))
 
+(defn remove-extension [filename]
+  (first (clojure.string/split filename #"\.")))
+
 (defn load-room [rooms file]
   (let [room (read-string (slurp (.getAbsolutePath file)))
         filename (.getName file)
-        room-key (keyword (str/replace filename #"\.clj$" ""))]
+        room-key (keyword (remove-extension filename))]
     (conj rooms
           {room-key
            {:name room-key
@@ -17,6 +20,7 @@
             :letters (ref (or (:letters room) #{})) 
             :chests (ref (or (:chests room) #{})) 
             :inhabitants (ref #{})}})))
+
 
 (defn load-rooms
   "Given a dir, return a map with an entry corresponding to each file
