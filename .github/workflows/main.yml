@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./mire #r
+        working-directory: ./mire #ra
 
     steps:
       - name: Checkout repository
