@@ -7,10 +7,10 @@ on:
 
 jobs:
   test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./mire #f
+        working-directory: ./mire
     
     steps:
       - name: Checkout repository
@@ -26,7 +26,7 @@ jobs:
   
   build:
     needs: test
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./mire
@@ -57,16 +57,24 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     
     steps:
-      - name: Pull Docker image
+      - name: Check SSH port accessibility
         run: |
-          podman login ghcr.io -u ${{ github.actor }} --password ${{ secrets.GHCR_PAT }}
-          podman pull ghcr.io/layar247/gfnrlp:latest
-
-      - name: Restart container
-        run: |
-          podman stop gfnrlp || true
-          podman rm gfnrlp || true
-          podman run -d --name gFnRLP -p 3333:3333 ghcr.io/layar247/gfnrlp:latest
+          sudo apt-get update
+          sudo apt-get install -y netcat-traditional
+          nc -zv 212.192.134.135 58529
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: 212.192.134.135
+          username: matsumoto
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 58529
+          script: |
+            podman login ghcr.io -u ${{ github.actor }} --password ${{ secrets.GHCR_PAT }}
+            podman pull ghcr.io/layar247/gfnrlp:latest
+            podman stop gfnrlp || true
+            podman rm gfnrlp || true
+            podman run -d --name gFnRLP -p 3333:3333 ghcr.io/layar247/gfnrlp:latest
