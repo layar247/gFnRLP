@@ -63,7 +63,7 @@ jobs:
       - name: Check SSH port accessibility
         run: |
           sudo apt-get update
-          sudo apt-get install -y netcat
+          sudo apt-get install -y netcat-traditional
           nc -zv 212.192.134.135 58529
 
       - name: SSH deploy
