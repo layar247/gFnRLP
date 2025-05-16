@@ -10,7 +10,7 @@
   (let [room (read-string (slurp (.getAbsolutePath file)))
         filename (.getName file)
         room-key (keyword (remove-extension filename))]
-    (conj rooms
+    (assoc rooms
           {room-key
            {:name room-key
             :is_closed (ref (or (:is_closed room) false))
