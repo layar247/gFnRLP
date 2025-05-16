@@ -10,16 +10,17 @@
   (let [room (read-string (slurp (.getAbsolutePath file)))
         filename (.getName file)
         room-key (keyword (remove-extension filename))]
+    (println "Загружаем комнату:" room-key) ;; ← отладка
     (assoc rooms
-       room-key
-       {:name room-key
-        :is_closed (ref (or (:is_closed room) false))
-        :desc (:desc room)
-        :exits (ref (:exits room))
-        :items (ref (or (:items room) #{}))
-        :letters (ref (or (:letters room) #{})) 
-        :chests (ref (or (:chests room) #{})) 
-        :inhabitants (ref #{})})))
+           room-key
+           {:name room-key
+            :is_closed (ref (or (:is_closed room) false))
+            :desc (:desc room)
+            :exits (ref (:exits room))
+            :items (ref (or (:items room) #{}))
+            :letters (ref (or (:letters room) #{})) 
+            :chests (ref (or (:chests room) #{})) 
+            :inhabitants (ref #{})})))
 
 (defn load-rooms
   "Given a dir, return a map with an entry corresponding to each file
