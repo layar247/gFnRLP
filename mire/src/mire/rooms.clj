@@ -1,12 +1,15 @@
-(ns mire.rooms)
+(ns mire.rooms
+  (:require [clojure.string :as str]))
 
 (def rooms (ref {}))
 
 (defn load-room [rooms file]
-  (let [room (read-string (slurp (.getAbsolutePath file)))]
+  (let [room (read-string (slurp (.getAbsolutePath file)))
+        filename (.getName file)
+        room-key (keyword (str/replace filename #"\.clj$" ""))]
     (conj rooms
-          {(keyword (.getName file))
-           {:name (keyword (.getName file))
+          {room-key
+           {:name room-key
             :is_closed (ref (or (:is_closed room) false))
             :desc (:desc room)
             :exits (ref (:exits room))
