@@ -1,0 +1,3 @@
+{:desc "Just an old chest"
+ :is_closed true
+ :items #{:luck-potion :apple}}
