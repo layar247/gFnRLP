@@ -2,55 +2,67 @@
   (:gen-class)
   (:require [clojure.java.io :as io]
             [server.socket :as socket]
-            [clojure.core.async :as async]
             [mire.player :as player]
             [mire.commands :as commands]
-            [mire.rooms :as rooms]))
+            [mire.rooms :as rooms]
+            [mire.letters :as letters]
+            [mire.items :as items]
+            [mire.chests :as chests]))
 
-(defn- log [& args]
-  (binding [*out* *err*]
-    (apply println args)))
+(defn- cleanup []
+  "Drop all inventory and remove player from room and player list."
+  (dosync
+   (doseq [item @player/*inventory*]
+     (commands/discard item))
+   (commute player/streams dissoc player/*name*)
+   (commute (:inhabitants @player/*current-room*)
+            disj player/*name*)))
 
-(defn- cleanup [name room]
-  (when (and name room)
-    (dosync
-     (commute (:inhabitants @room) disj name)
-    (commute player/streams dissoc name)))
-
-(defn- handle-commands [in out name]
-  (binding [*in* (io/reader in)
-            *out* (io/writer out)]
-    (loop []
-      (when-let [input (.readLine *in*))]
-        (try
-          (let [response (commands/execute input)]
-            (.write *out* (str response "\n"))
-            (.flush *out*))
-          (catch Exception e
-            (log "Command error:" e)))
-        (recur))))
+(defn- get-unique-player-name [name]
+  (if (@player/streams name)
+    (do (print "That name is in use; try again: ")
+        (flush)
+        (recur (read-line)))
+    name))
 
 (defn- mire-handle-client [in out]
-  (future
-    (try
-      (let [name (loop []
-                   (.write *out* "What is your name? ")
-                   (.flush *out*)
-                   (let [name (.readLine *in*))]
-                     (if (empty? name)
-                       (recur)
-                       name))]
-        (binding [player/*name* name
-                  player/*current-room* (ref (@rooms/rooms :start))]
-          (handle-commands in out name))
-      (finally
-        (cleanup player/*name* @player/*current-room*)))))
+  (binding [*in* (io/reader in)
+            *out* (io/writer out)
+            *err* (io/writer System/err)]
 
-(defn -main [& args]
-  (rooms/add-rooms "resources/rooms")
-  (when-not (@rooms/rooms :start)
-    (log "ERROR: No :start room defined")
-    (System/exit 1))
-  
-  (socket/create-server 3333 mire-handle-client)
-  (log "Server running on port 3333"))
+    ;; We have to nest this in another binding call instead of using
+    ;; the one above so *in* and *out* will be bound to the socket
+    (print "\nWhat is your name? ") (flush)
+    (binding [player/*name* (get-unique-player-name (read-line))
+              player/*current-room* (ref (@rooms/rooms :start))
+              player/*inventory* (ref #{})
+              player/*luck* 20
+              player/*money* 0
+              player/*current-chest* nil] 
+      
+      (dosync
+       (commute (:inhabitants @player/*current-room*) conj player/*name*)
+       (commute player/streams assoc player/*name* *out*))
+
+      (println (commands/look)) (print (player/health-bar)) (println (str " Money: " player/*money*)) (print player/prompt) (flush)
+
+      (try (loop [input (read-line)]
+             (when input
+               (println (commands/execute input))
+               (.flush *err*)
+               (print (player/health-bar)) (flush)
+               (println (str " Money: " player/*money*)) (flush)
+               (print player/prompt) (flush)
+               (recur (read-line))))
+           (finally (cleanup))))))
+
+(defn -main
+  ([port dir]
+     (rooms/add-rooms (str dir "rooms"))
+     (chests/add-chests (str dir "chests"))
+     (letters/add-letters (str dir "letters"))
+     (items/add-items (str dir "items"))
+     (defonce server (socket/create-server (Integer. port) mire-handle-client))
+     (println "Launching Mire server on port" port))
+  ([port] (-main port "resources/"))
+  ([] (-main 3333)))
