@@ -34,24 +34,29 @@ process(Stream) :-
   flush_output(Stream),
   retractall(exit(_)).
 
-process(_).
+process(Stream) :-
+    exit([Direction|_]),
+    format(atom(Command), 'move ~w~n', [Direction]),
+    write(Stream, Command),
+    flush_output(Stream),
+    retractall(exit(_)).
 
 loop(Stream) :-
-  read_line_to_codes(Stream, Codes),
-  filter_codes(Codes, Filtered),
-  atom_codes(Atom, Filtered),
-  tokenize_atom(Atom, Tokens),
-  write(Tokens),
-  parse(Tokens),
-  nl,
-  flush(),
-  sleep(1),
-  process(Stream),
-  loop(Stream).
- 
- main :-
-   setup_call_cleanup(
-     tcp_connect(localhost:3333, Stream, []),
-     loop(Stream),
-     close(Stream)).
+    read_line_to_codes(Stream, Codes),
+    (Codes == end_of_file -> 
+        close(Stream)
+    ;
+        filter_codes(Codes, Filtered),
+        atom_codes(Atom, Filtered),
+        tokenize_atom(Atom, Tokens),
+        parse(Tokens),
+        (exit(_) -> process(Stream) ; true),
+        loop(Stream)
+    ).
+
+main :-
+    setup_call_cleanup(
+        tcp_connect(localhost:3333, Stream, []),
+        (loop(Stream)),
+        close(Stream)).
      
